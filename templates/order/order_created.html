@@ -1,0 +1,39 @@
+{{define "content"}}
+<h2>Order Confirmation & Payment Required</h2>
+<p>Hello {{if .CustomerName}}{{.CustomerName}}{{else}}Customer{{end}},</p>
+<p>Thank you for placing your order <strong>#{{.OrderNumber}}</strong>. Your order is pending payment.</p>
+
+<table class="order-table">
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Subtotal</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Items}}
+        <tr>
+            <td>{{.ProductName}}{{if .VariantName}} ({{.VariantName}}){{end}}</td>
+            <td>{{.Quantity}}</td>
+            <td>${{printf "%.2f" .Price}}</td>
+            <td>${{printf "%.2f" .Subtotal}}</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+
+<div style="text-align: right; margin: 16px 0;">
+    {{if .ShippingFee}}<p>Shipping Fee: ${{printf "%.2f" .ShippingFee}}</p>{{end}}
+    <h3>Total: ${{printf "%.2f" .TotalAmount}}</h3>
+</div>
+
+{{if .SnapRedirectURL}}
+<div style="text-align: center; margin: 24px 0;">
+    <a href="{{.SnapRedirectURL}}" class="button" target="_blank">Complete Payment Now</a>
+</div>
+{{end}}
+
+<p>Shipping Address: <strong>{{.ShippingAddress}}</strong></p>
+{{end}}

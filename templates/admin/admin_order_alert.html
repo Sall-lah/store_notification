@@ -1,0 +1,41 @@
+{{define "content"}}
+<h2>⚡ Admin Alert: New Paid Order</h2>
+<p>A new order has been paid and is ready for fulfillment processing:</p>
+
+<div style="background: #f1f5f9; padding: 16px; border-radius: 6px; margin: 16px 0;">
+    <p><strong>Order Number:</strong> {{.OrderNumber}}</p>
+    <p><strong>Customer:</strong> {{.CustomerEmail}}</p>
+    <p><strong>Total Amount:</strong> ${{printf "%.2f" .TotalAmount}}</p>
+    <p><strong>Payment Time:</strong> {{.PaidAtFormatted}}</p>
+</div>
+
+<h3>Purchased Items ({{.ItemCount}})</h3>
+<table class="order-table">
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>SKU</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Subtotal</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Items}}
+        <tr>
+            <td>{{.ProductName}}{{if .VariantName}} ({{.VariantName}}){{end}}</td>
+            <td>{{if .SKU}}{{.SKU}}{{else}}N/A{{end}}</td>
+            <td>{{.Quantity}}</td>
+            <td>${{printf "%.2f" .Price}}</td>
+            <td>${{printf "%.2f" .Subtotal}}</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+
+{{if .AdminPortalURL}}
+<div style="text-align: center; margin: 24px 0;">
+    <a href="{{.AdminPortalURL}}" class="button" target="_blank">Open in Admin Portal</a>
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,342 @@
+openapi: 3.1.0
+info:
+  title: Store Notification Microservice API
+  version: 1.0.0
+  description: |
+    Asynchronous event-driven notification microservice for the store platform.
+    Powered by Go, Apache Kafka (segmentio/kafka-go), Redis idempotency deduplication, and SMTP email transport.
+
+    ### Architecture & Event Consumption
+    - **Apache Kafka Ingestion**: Consumes domain events from `auth.events` and `order.events` topics asynchronously.
+    - **Redis Idempotency**: Guarantees exactly-once email delivery via atomic `SETNX` locks (`notif:evt:{event_id}`, 24h TTL).
+    - **SMTP Dispatch**: Renders responsive HTML/plain-text templates and delivers emails to customers and store administrators (`STORE_ADMIN_EMAILS`).
+    - **API Gateway Documentation Proxy**: Exposes OpenAPI 3.1 definitions and interactive Scalar/Swagger UI proxies under `/docs/notifications/...`.
+
+servers:
+  - url: http://localhost:8070
+    description: Local Standalone Development Server (store_notification direct)
+  - url: /
+    description: Production API Gateway Reverse Proxy
+
+tags:
+  - name: Health & Readiness
+    description: Service liveness, readiness, and subsystem connectivity status
+  - name: Documentation
+    description: Interactive API reference and OpenAPI 3.1 schema distribution
+  - name: Kafka Event Schemas
+    description: Standard JSON schemas for incoming Kafka event topics and payloads
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health & Readiness
+      summary: Liveness Probe
+      description: Returns liveness status of the store_notification service.
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: UP
+                service: store_notification
+                timestamp: "2026-08-20T12:00:00Z"
+
+  /ready:
+    get:
+      tags:
+        - Health & Readiness
+      summary: Readiness Probe
+      description: Returns readiness status of connected subsystems (Redis idempotency cache, SMTP transport, Kafka consumer).
+      operationId: getReady
+      responses:
+        "200":
+          description: All subsystems are operational
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadyResponse"
+              example:
+                status: READY
+                service: store_notification
+                timestamp: "2026-08-20T12:00:00Z"
+                subsystems:
+                  redis: UP
+                  smtp: UP
+                  kafka_consumer: RUNNING
+        "503":
+          description: One or more critical subsystems are degraded or unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadyResponse"
+
+  /docs/notifications/openapi.yaml:
+    get:
+      tags:
+        - Documentation
+      summary: OpenAPI 3.1 YAML Specification
+      description: Returns raw YAML OpenAPI 3.1 definition for API Gateway documentation aggregation.
+      operationId: getOpenAPIYaml
+      responses:
+        "200":
+          description: Raw YAML specification file
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  /docs/notifications/openapi.json:
+    get:
+      tags:
+        - Documentation
+      summary: OpenAPI 3.1 JSON Specification
+      description: Returns raw JSON OpenAPI 3.1 definition.
+      operationId: getOpenAPIJson
+      responses:
+        "200":
+          description: Raw JSON specification
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /docs/notifications/scalar:
+    get:
+      tags:
+        - Documentation
+      summary: Interactive Scalar API Reference
+      description: Renders modern interactive Scalar API reference interface.
+      operationId: getScalarDocs
+      responses:
+        "200":
+          description: Scalar interactive documentation HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /docs/notifications/swagger:
+    get:
+      tags:
+        - Documentation
+      summary: Classic Swagger UI
+      description: Renders interactive Swagger UI documentation.
+      operationId: getSwaggerDocs
+      responses:
+        "200":
+          description: Swagger UI HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: UP
+        service:
+          type: string
+          example: store_notification
+        timestamp:
+          type: string
+          format: date-time
+
+    ReadyResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+        - subsystems
+      properties:
+        status:
+          type: string
+          example: READY
+        service:
+          type: string
+          example: store_notification
+        timestamp:
+          type: string
+          format: date-time
+        subsystems:
+          type: object
+          properties:
+            redis:
+              type: string
+              example: UP
+            smtp:
+              type: string
+              example: UP
+            kafka_consumer:
+              type: string
+              example: RUNNING
+
+    EventEnvelope:
+      type: object
+      required:
+        - event_id
+        - event_type
+        - timestamp
+        - producer
+        - data
+      properties:
+        event_id:
+          type: string
+          format: uuid
+          example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        event_type:
+          type: string
+          enum:
+            - auth.registration_otp
+            - auth.password_reset_otp
+            - order.created
+            - order.paid
+            - order.cancelled
+            - order.fulfilled
+          example: auth.registration_otp
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-08-20T12:00:00Z"
+        producer:
+          type: string
+          example: store_auth
+        data:
+          type: object
+          description: Event-specific payload
+
+    AuthOtpEventData:
+      type: object
+      required:
+        - email
+        - code
+      properties:
+        email:
+          type: string
+          format: email
+          example: customer@example.com
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          example: "123456"
+        name:
+          type: string
+          example: John Doe
+        type:
+          type: string
+          enum:
+            - REGISTRATION
+            - PASSWORD_RESET
+          example: REGISTRATION
+
+    OrderItemData:
+      type: object
+      required:
+        - productName
+        - price
+        - quantity
+        - subtotal
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+          format: uuid
+        variantId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+          example: Premium Running Shoes
+        variantName:
+          type: string
+          example: Size 42 / Midnight Black
+        sku:
+          type: string
+          example: SHOE-RUN-42-BLK
+        price:
+          type: number
+          example: 120.00
+        quantity:
+          type: integer
+          example: 2
+        subtotal:
+          type: number
+          example: 240.00
+
+    OrderEventData:
+      type: object
+      required:
+        - orderNumber
+        - userEmail
+        - totalAmount
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNumber:
+          type: string
+          example: ORD-2026-0820-001
+        userId:
+          type: string
+          example: usr_12345
+        userEmail:
+          type: string
+          format: email
+          example: customer@example.com
+        status:
+          type: string
+          enum:
+            - PENDING_PAYMENT
+            - PAID
+            - PROCESSING
+            - SHIPPED
+            - COMPLETED
+            - CANCELLED
+            - EXPIRED
+          example: PAID
+        totalAmount:
+          type: number
+          example: 245.00
+        shippingFee:
+          type: number
+          example: 5.00
+        shippingAddress:
+          type: string
+          example: 742 Evergreen Terrace, Springfield, OR
+        paymentType:
+          type: string
+          example: credit_card
+        snapRedirectUrl:
+          type: string
+          format: uri
+          example: https://app.sandbox.midtrans.com/snap/v2/vtweb/token123
+        paidAt:
+          type: string
+          format: date-time
+          example: "2026-08-20T12:05:00Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-08-20T12:00:00Z"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItemData"
+        reason:
+          type: string
+          example: Payment authorization expired

@@ -1,0 +1,209 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Store Notification Microservice API",
+    "version": "1.0.0",
+    "description": "Asynchronous event-driven notification microservice for the store platform.\nPowered by Go, Apache Kafka (segmentio/kafka-go), Redis idempotency deduplication, and SMTP email transport.\n"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8070",
+      "description": "Local Standalone Development Server"
+    },
+    {
+      "url": "/",
+      "description": "Production API Gateway Reverse Proxy"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health & Readiness",
+      "description": "Service liveness, readiness, and subsystem connectivity status"
+    },
+    {
+      "name": "Documentation",
+      "description": "Interactive API reference and OpenAPI 3.1 schema distribution"
+    },
+    {
+      "name": "Kafka Event Schemas",
+      "description": "Standard JSON schemas for incoming Kafka event topics and payloads"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health & Readiness"],
+        "summary": "Liveness Probe",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service is alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": ["Health & Readiness"],
+        "summary": "Readiness Probe",
+        "operationId": "getReady",
+        "responses": {
+          "200": {
+            "description": "All subsystems operational",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/docs/notifications/openapi.yaml": {
+      "get": {
+        "tags": ["Documentation"],
+        "summary": "OpenAPI 3.1 YAML Specification",
+        "operationId": "getOpenAPIYaml",
+        "responses": {
+          "200": {
+            "description": "Raw YAML specification file"
+          }
+        }
+      }
+    },
+    "/docs/notifications/openapi.json": {
+      "get": {
+        "tags": ["Documentation"],
+        "summary": "OpenAPI 3.1 JSON Specification",
+        "operationId": "getOpenAPIJson",
+        "responses": {
+          "200": {
+            "description": "Raw JSON specification"
+          }
+        }
+      }
+    },
+    "/docs/notifications/scalar": {
+      "get": {
+        "tags": ["Documentation"],
+        "summary": "Interactive Scalar API Reference",
+        "operationId": "getScalarDocs",
+        "responses": {
+          "200": {
+            "description": "Scalar interactive documentation HTML page"
+          }
+        }
+      }
+    },
+    "/docs/notifications/swagger": {
+      "get": {
+        "tags": ["Documentation"],
+        "summary": "Classic Swagger UI",
+        "operationId": "getSwaggerDocs",
+        "responses": {
+          "200": {
+            "description": "Swagger UI HTML page"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status", "service", "timestamp"],
+        "properties": {
+          "status": { "type": "string", "example": "UP" },
+          "service": { "type": "string", "example": "store_notification" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ReadyResponse": {
+        "type": "object",
+        "required": ["status", "service", "timestamp", "subsystems"],
+        "properties": {
+          "status": { "type": "string", "example": "READY" },
+          "service": { "type": "string", "example": "store_notification" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "subsystems": {
+            "type": "object",
+            "properties": {
+              "redis": { "type": "string", "example": "UP" },
+              "smtp": { "type": "string", "example": "UP" },
+              "kafka_consumer": { "type": "string", "example": "RUNNING" }
+            }
+          }
+        }
+      },
+      "EventEnvelope": {
+        "type": "object",
+        "required": ["event_id", "event_type", "timestamp", "producer", "data"],
+        "properties": {
+          "event_id": { "type": "string", "format": "uuid" },
+          "event_type": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "producer": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      },
+      "AuthOtpEventData": {
+        "type": "object",
+        "required": ["email", "code"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string" }
+        }
+      },
+      "OrderItemData": {
+        "type": "object",
+        "required": ["productName", "price", "quantity", "subtotal"],
+        "properties": {
+          "id": { "type": "string" },
+          "productId": { "type": "string", "format": "uuid" },
+          "variantId": { "type": "string", "format": "uuid" },
+          "productName": { "type": "string" },
+          "variantName": { "type": "string" },
+          "sku": { "type": "string" },
+          "price": { "type": "number" },
+          "quantity": { "type": "integer" },
+          "subtotal": { "type": "number" }
+        }
+      },
+      "OrderEventData": {
+        "type": "object",
+        "required": ["orderNumber", "userEmail", "totalAmount"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "orderNumber": { "type": "string" },
+          "userId": { "type": "string" },
+          "userEmail": { "type": "string", "format": "email" },
+          "status": { "type": "string" },
+          "totalAmount": { "type": "number" },
+          "shippingFee": { "type": "number" },
+          "shippingAddress": { "type": "string" },
+          "paymentType": { "type": "string" },
+          "snapRedirectUrl": { "type": "string", "format": "uri" },
+          "paidAt": { "type": "string", "format": "date-time" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/OrderItemData" }
+          },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}

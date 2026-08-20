@@ -1,0 +1,7 @@
+.agent
+.omg
+openspec
+bin/
+*.exe
+.env
+.env.*.local

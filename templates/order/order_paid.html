@@ -1,0 +1,33 @@
+{{define "content"}}
+<h2>Payment Received - Order Confirmed!</h2>
+<p>Hello {{if .CustomerName}}{{.CustomerName}}{{else}}Customer{{end}},</p>
+<p>We're pleased to confirm that payment for order <strong>#{{.OrderNumber}}</strong> has been successfully processed on {{.PaidAtFormatted}}.</p>
+
+<div style="background: #ecfdf5; border-left: 4px solid #10b981; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+    <span class="badge badge-success">PAID</span> Total Amount: <strong>${{printf "%.2f" .TotalAmount}}</strong>
+</div>
+
+<table class="order-table">
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Subtotal</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Items}}
+        <tr>
+            <td>{{.ProductName}}{{if .VariantName}} ({{.VariantName}}){{end}}</td>
+            <td>{{.Quantity}}</td>
+            <td>${{printf "%.2f" .Price}}</td>
+            <td>${{printf "%.2f" .Subtotal}}</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+
+<p>Shipping Destination: <strong>{{.ShippingAddress}}</strong></p>
+<p>Our fulfillment team is now preparing your shipment. We will send you another update once your package is on its way!</p>
+{{end}}

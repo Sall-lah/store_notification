@@ -1,0 +1,11 @@
+{{define "content"}}
+<h2>Your Order is on the Way!</h2>
+<p>Hello {{if .CustomerName}}{{.CustomerName}}{{else}}Customer{{end}},</p>
+<p>Exciting news! Your order <strong>#{{.OrderNumber}}</strong> has been fulfilled and dispatched.</p>
+
+<div style="background: #f0fdf4; border-left: 4px solid #22c55e; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+    Delivery Address: <strong>{{.ShippingAddress}}</strong>
+</div>
+
+<p>Thank you for shopping with us!</p>
+{{end}}
