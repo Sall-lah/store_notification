@@ -39,8 +39,12 @@ type Config struct {
 // It provides deterministic defaults for local development while requiring
 // critical variables in production environments.
 func Load() (*Config, error) {
-	// Attempt to load .env file; silently ignore if not present since env vars may be injected by container runtime.
-	_ = godotenv.Load()
+	// Attempt to load .env file from current or parent directories (useful when running sub-package tests).
+	for _, path := range []string{".env", "../.env", "../../.env"} {
+		if err := godotenv.Load(path); err == nil {
+			break
+		}
+	}
 
 	smtpHost := getEnv("SMTP_HOST", "localhost")
 	port := getEnvInt("SMTP_PORT", 1025)
