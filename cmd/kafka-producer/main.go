@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,13 +32,27 @@ func newSmartDialer() *kafka.Dialer {
 }
 
 func main() {
+	emailFlag := flag.String("email", "cann27089@gmail.com", "Target email address for order notifications")
+	orderFlag := flag.String("order", "", "Custom order number (optional)")
+	flag.Parse()
+
+	targetEmail := strings.TrimSpace(*emailFlag)
+	if targetEmail == "" {
+		targetEmail = "cann27089@gmail.com"
+	}
+
+	orderNum := strings.TrimSpace(*orderFlag)
+	if orderNum == "" {
+		orderNum = fmt.Sprintf("ORD-%s-%s", time.Now().Format("20060102-150405"), strings.ToUpper(uuid.NewString()[:4]))
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	targetEmail := "hellofliqpy1@gmail.com"
 	log.Printf("Connecting to Kafka broker(s) at: %v\n", cfg.KafkaBrokers)
+	log.Printf("Testing full order flow for: %s (Order #%s)\n", targetEmail, orderNum)
 
 	dialer := newSmartDialer()
 
@@ -51,81 +67,137 @@ func main() {
 	}
 	defer writer.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// 1. Live Registration OTP Event on auth.events
-	authPayload, _ := json.Marshal(domain.AuthOtpEventData{
-		Email: targetEmail,
-		Code:  "991122",
-		Name:  "Kafka Live Tester",
-		Type:  "REGISTRATION",
+	sampleItems := []domain.OrderItemData{
+		{
+			ProductName: "Keychron Q1 Pro Wireless Custom Mechanical Keyboard",
+			VariantName: "Carbon Black / Red Switch",
+			SKU:         "KB-Q1PRO-RED",
+			Price:       199.00,
+			Quantity:    1,
+			Subtotal:    199.00,
+		},
+		{
+			ProductName: "Logitech MX Master 3S",
+			VariantName: "Space Gray",
+			SKU:         "MS-MXM3S-GRY",
+			Price:       99.00,
+			Quantity:    1,
+			Subtotal:    99.00,
+		},
+	}
+
+	now := time.Now().UTC()
+
+	// 1. Live Order Created Event on order.events
+	createdPayload, _ := json.Marshal(domain.OrderEventData{
+		ID:              uuid.NewString(),
+		OrderNumber:     orderNum,
+		UserID:          "usr_live_test_101",
+		UserEmail:       targetEmail,
+		Status:          "PENDING_PAYMENT",
+		TotalAmount:     308.00,
+		ShippingFee:     10.00,
+		ShippingAddress: "Sudirman Central Business District (SCBD) Lot 28, Senayan, Kebayoran Baru, Jakarta Selatan, 12190",
+		PaymentType:     "midtrans_snap",
+		SnapRedirectURL: "https://app.sandbox.midtrans.com/snap/v2/vtweb/demo-payment-token",
+		Items:           sampleItems,
+		CreatedAt:       now,
 	})
 
-	authEnvelope, _ := json.Marshal(domain.EventEnvelope{
+	createdEnvelope, _ := json.Marshal(domain.EventEnvelope{
 		EventID:   uuid.NewString(),
-		EventType: domain.EventTypeAuthRegistrationOTP,
-		Timestamp: time.Now().UTC(),
-		Producer:  "store_auth",
-		Data:      authPayload,
+		EventType: domain.EventTypeOrderCreated,
+		Timestamp: now,
+		Producer:  "store_order",
+		Data:      createdPayload,
 	})
 
-	authMsg := kafka.Message{
-		Topic: "auth.events",
-		Key:   []byte(targetEmail),
-		Value: authEnvelope,
+	log.Printf("==> [1/3] Publishing [order.created] to topic [order.events]...")
+	if err := writer.WriteMessages(ctx, kafka.Message{
+		Topic: "order.events",
+		Key:   []byte(orderNum),
+		Value: createdEnvelope,
+	}); err != nil {
+		log.Fatalf("❌ Failed to write order.created: %v", err)
 	}
+	log.Printf("✅ Published order.created event successfully!")
 
-	log.Printf("Publishing live event to Kafka topic [auth.events]...")
-	if err := writer.WriteMessages(ctx, authMsg); err != nil {
-		log.Fatalf("❌ Failed to write to Kafka topic auth.events: %v", err)
-	}
-	log.Printf("✅ Published registration OTP event to topic [auth.events] successfully!")
+	time.Sleep(2 * time.Second)
 
 	// 2. Live Order Paid Event on order.events
-	orderPayload, _ := json.Marshal(domain.OrderEventData{
-		ID:          uuid.NewString(),
-		OrderNumber: "ORD-KAFKA-LIVE-888",
-		UserID:      "usr_kafka_99",
-		UserEmail:   targetEmail,
-		Status:      "PAID",
-		TotalAmount: 349.00,
-		ShippingFee: 0.00,
-		ShippingAddress: "Jl. Jend. Sudirman Kav. 52-53, SCBD, Jakarta",
-		PaymentType: "qris",
-		Items: []domain.OrderItemData{
-			{
-				ProductName: "4K Gaming Monitor 144Hz",
-				VariantName: "27 inch / IPS Panel",
-				SKU:         "MON-4K-27-IPS",
-				Price:       349.00,
-				Quantity:    1,
-				Subtotal:    349.00,
-			},
-		},
+	paidAt := time.Now().UTC()
+	paidPayload, _ := json.Marshal(domain.OrderEventData{
+		ID:              uuid.NewString(),
+		OrderNumber:     orderNum,
+		UserID:          "usr_live_test_101",
+		UserEmail:       targetEmail,
+		Status:          "PAID",
+		TotalAmount:     308.00,
+		ShippingFee:     10.00,
+		ShippingAddress: "Sudirman Central Business District (SCBD) Lot 28, Senayan, Kebayoran Baru, Jakarta Selatan, 12190",
+		PaymentType:     "gopay",
+		PaidAt:          &paidAt,
+		Items:           sampleItems,
 	})
 
-	orderEnvelope, _ := json.Marshal(domain.EventEnvelope{
+	paidEnvelope, _ := json.Marshal(domain.EventEnvelope{
 		EventID:   uuid.NewString(),
 		EventType: domain.EventTypeOrderPaid,
 		Timestamp: time.Now().UTC(),
 		Producer:  "store_order",
-		Data:      orderPayload,
+		Data:      paidPayload,
 	})
 
-	orderMsg := kafka.Message{
+	log.Printf("==> [2/3] Publishing [order.paid] to topic [order.events]...")
+	if err := writer.WriteMessages(ctx, kafka.Message{
 		Topic: "order.events",
-		Key:   []byte("ORD-KAFKA-LIVE-888"),
-		Value: orderEnvelope,
+		Key:   []byte(orderNum),
+		Value: paidEnvelope,
+	}); err != nil {
+		log.Fatalf("❌ Failed to write order.paid: %v", err)
 	}
+	log.Printf("✅ Published order.paid event successfully!")
 
-	log.Printf("Publishing live event to Kafka topic [order.events]...")
-	if err := writer.WriteMessages(ctx, orderMsg); err != nil {
-		log.Fatalf("❌ Failed to write to Kafka topic order.events: %v", err)
+	time.Sleep(2 * time.Second)
+
+	// 3. Live Order Fulfilled Event on order.events
+	fulfilledPayload, _ := json.Marshal(domain.OrderEventData{
+		ID:              uuid.NewString(),
+		OrderNumber:     orderNum,
+		UserID:          "usr_live_test_101",
+		UserEmail:       targetEmail,
+		Status:          "FULFILLED",
+		TotalAmount:     308.00,
+		ShippingFee:     10.00,
+		ShippingAddress: "Sudirman Central Business District (SCBD) Lot 28, Senayan, Kebayoran Baru, Jakarta Selatan, 12190",
+		PaymentType:     "gopay",
+		Items:           sampleItems,
+	})
+
+	fulfilledEnvelope, _ := json.Marshal(domain.EventEnvelope{
+		EventID:   uuid.NewString(),
+		EventType: domain.EventTypeOrderFulfilled,
+		Timestamp: time.Now().UTC(),
+		Producer:  "store_order",
+		Data:      fulfilledPayload,
+	})
+
+	log.Printf("==> [3/3] Publishing [order.fulfilled] to topic [order.events]...")
+	if err := writer.WriteMessages(ctx, kafka.Message{
+		Topic: "order.events",
+		Key:   []byte(orderNum),
+		Value: fulfilledEnvelope,
+	}); err != nil {
+		log.Fatalf("❌ Failed to write order.fulfilled: %v", err)
 	}
-	log.Printf("✅ Published order.paid event to topic [order.events] successfully!")
+	log.Printf("✅ Published order.fulfilled event successfully!")
 
 	fmt.Println("\n=======================================================")
-	fmt.Println("Events published to Kafka! Check store_notification logs.")
+	fmt.Printf("All lifecycle events (Created -> Paid -> Fulfilled) published to Kafka for %s!\n", targetEmail)
+	fmt.Println("Check store_notification_app container logs and email inbox.")
 	fmt.Println("=======================================================")
 }
+
