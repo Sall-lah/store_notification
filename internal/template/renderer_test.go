@@ -64,3 +64,57 @@ func TestRenderAdminOrderAlert(t *testing.T) {
 		t.Errorf("expected HTML to contain product name Mechanical Keyboard")
 	}
 }
+
+func TestRenderOrderCancelled(t *testing.T) {
+	renderer := NewRenderer()
+	ctx := domain.OrderEmailContext{
+		OrderNumber:   "ORD-2026-CANCEL-99",
+		CustomerEmail: "customer@example.com",
+		Status:        "CANCELLED",
+		TotalAmount:   150.00,
+		Reason:        "Customer requested cancellation",
+		AppName:       "Acme Store",
+	}
+
+	html, _, err := renderer.RenderOrderCancelled(ctx)
+	if err != nil {
+		t.Fatalf("failed to render order cancelled template: %v", err)
+	}
+
+	if !strings.Contains(html, "ORD-2026-CANCEL-99") {
+		t.Errorf("expected HTML to contain order number ORD-2026-CANCEL-99")
+	}
+	if !strings.Contains(html, "CANCELLED") {
+		t.Errorf("expected HTML to contain CANCELLED status")
+	}
+	if !strings.Contains(html, "Customer requested cancellation") {
+		t.Errorf("expected HTML to contain cancellation reason")
+	}
+}
+
+func TestRenderOrderExpired(t *testing.T) {
+	renderer := NewRenderer()
+	ctx := domain.OrderEmailContext{
+		OrderNumber:   "ORD-2026-EXPIRE-99",
+		CustomerEmail: "customer@example.com",
+		Status:        "EXPIRED",
+		TotalAmount:   199.90,
+		Reason:        "Payment window expired after 24 hours",
+		AppName:       "Acme Store",
+	}
+
+	html, _, err := renderer.RenderOrderExpired(ctx)
+	if err != nil {
+		t.Fatalf("failed to render order expired template: %v", err)
+	}
+
+	if !strings.Contains(html, "ORD-2026-EXPIRE-99") {
+		t.Errorf("expected HTML to contain order number ORD-2026-EXPIRE-99")
+	}
+	if !strings.Contains(html, "Payment Window Expired") {
+		t.Errorf("expected HTML to contain 'Payment Window Expired' header")
+	}
+	if !strings.Contains(html, "Payment window expired after 24 hours") {
+		t.Errorf("expected HTML to contain expiration reason")
+	}
+}

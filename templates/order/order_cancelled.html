@@ -3,11 +3,17 @@
 <p>Hello {{if .CustomerName}}{{.CustomerName}}{{else}}Customer{{end}},</p>
 <p>Your order <strong>#{{.OrderNumber}}</strong> has been cancelled.</p>
 
-{{if .Reason}}
 <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
-    Reason: <strong>{{.Reason}}</strong>
+    Status: <strong>CANCELLED</strong><br>
+    Reason: <strong>{{if .Reason}}{{.Reason}}{{else}}Cancelled by customer before payment{{end}}</strong>
 </div>
+
+{{if .TotalAmount}}
+<p>Order Total: <strong>${{printf "%.2f" .TotalAmount}}</strong></p>
 {{end}}
 
-<p>If you have questions or believe this was done in error, please contact our support team.</p>
+<p>Any pending payment or stock reservations associated with this order have been released.</p>
+
+<p>If you have questions or believe this was done in error, please contact our support team or create a new order anytime.</p>
 {{end}}
+

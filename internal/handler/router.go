@@ -83,6 +83,12 @@ func (r *Router) Route(ctx context.Context, envelope *domain.EventEnvelope) erro
 			handleErr = r.orderHandler.HandleOrderCancelled(ctx, data)
 		}
 
+	case domain.EventTypeOrderExpired:
+		var data *domain.OrderEventData
+		if data, handleErr = envelope.ParseOrderEvent(); handleErr == nil {
+			handleErr = r.orderHandler.HandleOrderExpired(ctx, data)
+		}
+
 	case domain.EventTypeOrderFulfilled:
 		var data *domain.OrderEventData
 		if data, handleErr = envelope.ParseOrderEvent(); handleErr == nil {

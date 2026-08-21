@@ -1,0 +1,14 @@
+{{define "content"}}
+<h2>Payment Window Expired</h2>
+<p>Hello {{if .CustomerName}}{{.CustomerName}}{{else}}Customer{{end}},</p>
+<p>The payment window for your order <strong>#{{.OrderNumber}}</strong> has expired.</p>
+
+<div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+    Status: <strong>EXPIRED</strong><br>
+    Reason: <strong>{{if .Reason}}{{.Reason}}{{else}}Payment was not completed in time{{end}}</strong>
+</div>
+
+<p>Because payment was not completed within the allotted time, this order has been closed and the items have been released back to stock.</p>
+
+<p>If you would still like to purchase these items, you can create a new order anytime.</p>
+{{end}}

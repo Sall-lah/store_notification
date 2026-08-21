@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,8 +20,16 @@ import (
 )
 
 func main() {
-	targetEmail := "hellofliqpy1@gmail.com"
-	log.Printf("Preparing to send test emails to: %s\n", targetEmail)
+	emailFlag := flag.String("email", "hellofliqy1@gmail.com", "Target email address for test notifications")
+	scenarioFlag := flag.String("scenario", "all", "Specific scenario to test (e.g. cancelled, expired, paid, created, all)")
+	flag.Parse()
+
+	targetEmail := strings.TrimSpace(*emailFlag)
+	if targetEmail == "" {
+		targetEmail = "hellofliqy1@gmail.com"
+	}
+
+	log.Printf("Preparing to send test emails to: %s (Scenario filter: %s)\n", targetEmail, *scenarioFlag)
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -45,10 +56,12 @@ func main() {
 	ctx := context.Background()
 
 	testEvents := []struct {
+		id       string
 		name     string
 		envelope domain.EventEnvelope
 	}{
 		{
+			id:   "reg_otp",
 			name: "1. User Registration OTP",
 			envelope: domain.EventEnvelope{
 				EventID:   uuid.NewString(),
@@ -58,12 +71,13 @@ func main() {
 				Data: json.RawMessage(fmt.Sprintf(`{
 					"email": %q,
 					"code": "847291",
-					"name": "Fliqpy",
+					"name": "Customer",
 					"type": "REGISTRATION"
 				}`, targetEmail)),
 			},
 		},
 		{
+			id:   "reset_otp",
 			name: "2. Password Reset OTP",
 			envelope: domain.EventEnvelope{
 				EventID:   uuid.NewString(),
@@ -73,12 +87,13 @@ func main() {
 				Data: json.RawMessage(fmt.Sprintf(`{
 					"email": %q,
 					"code": "391054",
-					"name": "Fliqpy",
+					"name": "Customer",
 					"type": "PASSWORD_RESET"
 				}`, targetEmail)),
 			},
 		},
 		{
+			id:   "created",
 			name: "3. Order Created (Pending Payment)",
 			envelope: domain.EventEnvelope{
 				EventID:   uuid.NewString(),
@@ -110,6 +125,7 @@ func main() {
 			},
 		},
 		{
+			id:   "paid",
 			name: "4. Order Paid (Receipt to Customer + Alert to Admin)",
 			envelope: domain.EventEnvelope{
 				EventID:   uuid.NewString(),
@@ -148,7 +164,8 @@ func main() {
 			},
 		},
 		{
-			name: "5. Order Cancelled",
+			id:   "cancelled",
+			name: "5. Order Cancelled (by User)",
 			envelope: domain.EventEnvelope{
 				EventID:   uuid.NewString(),
 				EventType: domain.EventTypeOrderCancelled,
@@ -156,17 +173,37 @@ func main() {
 				Producer:  "store_order",
 				Data: json.RawMessage(fmt.Sprintf(`{
 					"id": %q,
-					"orderNumber": "ORD-2026-TEST-003",
+					"orderNumber": %q,
 					"userId": "usr_test_123",
 					"userEmail": %q,
 					"status": "CANCELLED",
-					"totalAmount": 99.00,
-					"reason": "Payment window expired after 24 hours"
-				}`, uuid.NewString(), targetEmail)),
+					"totalAmount": 129.50,
+					"reason": "Cancelled by customer before payment"
+				}`, uuid.NewString(), fmt.Sprintf("ORD-%s-CANCEL-%s", time.Now().Format("150405"), strings.ToUpper(uuid.NewString()[:4])), targetEmail)),
 			},
 		},
 		{
-			name: "6. Order Fulfilled (Dispatched / Shipping)",
+			id:   "expired",
+			name: "6. Order Expired (Payment Window Expired)",
+			envelope: domain.EventEnvelope{
+				EventID:   uuid.NewString(),
+				EventType: domain.EventTypeOrderExpired,
+				Timestamp: time.Now().UTC(),
+				Producer:  "store_order",
+				Data: json.RawMessage(fmt.Sprintf(`{
+					"id": %q,
+					"orderNumber": %q,
+					"userId": "usr_test_123",
+					"userEmail": %q,
+					"status": "EXPIRED",
+					"totalAmount": 175.00,
+					"reason": "Payment window expired after 24 hours (items returned to stock)"
+				}`, uuid.NewString(), fmt.Sprintf("ORD-%s-EXPIRE-%s", time.Now().Format("150405"), strings.ToUpper(uuid.NewString()[:4])), targetEmail)),
+			},
+		},
+		{
+			id:   "fulfilled",
+			name: "7. Order Fulfilled (Dispatched / Shipping)",
 			envelope: domain.EventEnvelope{
 				EventID:   uuid.NewString(),
 				EventType: domain.EventTypeOrderFulfilled,
@@ -174,7 +211,7 @@ func main() {
 				Producer:  "store_order",
 				Data: json.RawMessage(fmt.Sprintf(`{
 					"id": %q,
-					"orderNumber": "ORD-2026-TEST-004",
+					"orderNumber": "ORD-2026-TEST-005",
 					"userId": "usr_test_123",
 					"userEmail": %q,
 					"status": "FULFILLED",
@@ -185,9 +222,17 @@ func main() {
 		},
 	}
 
-	successCount := 0
+	selectedScenario := strings.ToLower(*scenarioFlag)
+	var executedCount int
+	var successCount int
+
 	for _, item := range testEvents {
-		fmt.Printf("\n--> Dispatching [%s]...\n", item.name)
+		if selectedScenario != "all" && item.id != selectedScenario && !strings.Contains(strings.ToLower(item.name), selectedScenario) {
+			continue
+		}
+
+		executedCount++
+		fmt.Printf("\n--> Dispatching [%s] to %s...\n", item.name, targetEmail)
 		if err := router.Route(ctx, &item.envelope); err != nil {
 			log.Printf("❌ Failed to send [%s]: %v\n", item.name, err)
 		} else {
@@ -195,10 +240,15 @@ func main() {
 			successCount++
 		}
 		// Brief pause between emails to avoid hitting rapid rate limits
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(600 * time.Millisecond)
 	}
 
 	fmt.Printf("\n========================================\n")
-	fmt.Printf("Dispatch complete: %d/%d test scenarios processed.\n", successCount, len(testEvents))
+	fmt.Printf("Dispatch complete: %d/%d selected scenarios processed successfully to %s.\n", successCount, executedCount, targetEmail)
 	fmt.Printf("========================================\n")
+
+	if successCount < executedCount {
+		os.Exit(1)
+	}
 }
+

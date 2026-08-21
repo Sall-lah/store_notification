@@ -33,9 +33,10 @@ func NewConsumer(cfg *config.Config, router *handler.Router) *Consumer {
 		DialFunc: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			host, port, err := net.SplitHostPort(addr)
 			if err == nil {
-				// Try DNS lookup first (works inside Podman/Docker networks)
+				// Why: Inside container networks, 'kafka' resolves via container DNS.
+				// On local host machines outside containers, 'kafka' may be unresolvable,
+				// so we fallback to 127.0.0.1 only when DNS resolution fails.
 				if _, lookupErr := net.LookupHost(host); lookupErr != nil {
-					// Fallback for host development outside container network
 					if host == "kafka" || host == "broker" {
 						addr = net.JoinHostPort("127.0.0.1", port)
 					}

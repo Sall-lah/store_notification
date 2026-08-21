@@ -163,6 +163,37 @@ func (h *OrderHandler) HandleOrderCancelled(ctx context.Context, data *domain.Or
 	return h.mailer.Send(ctx, msg)
 }
 
+// HandleOrderExpired sends an expiration notification to the customer.
+// Why: Alerts the customer that their unpaid order has expired and stock has been returned.
+func (h *OrderHandler) HandleOrderExpired(ctx context.Context, data *domain.OrderEventData) error {
+	if err := data.Validate(); err != nil {
+		return fmt.Errorf("invalid order.expired payload: %w", err)
+	}
+
+	emailCtx := domain.OrderEmailContext{
+		OrderNumber:   data.OrderNumber,
+		CustomerEmail: data.UserEmail,
+		Status:        "EXPIRED",
+		TotalAmount:   data.TotalAmount,
+		Reason:        data.Reason,
+		AppName:       h.appName,
+	}
+
+	htmlBody, textBody, err := h.renderer.RenderOrderExpired(emailCtx)
+	if err != nil {
+		return fmt.Errorf("failed to render order_expired template: %w", err)
+	}
+
+	msg := &domain.EmailMessage{
+		To:       []string{data.UserEmail},
+		Subject:  fmt.Sprintf("[%s] Order #%s Payment Window Expired", h.appName, data.OrderNumber),
+		HTMLBody: htmlBody,
+		TextBody: textBody,
+	}
+
+	return h.mailer.Send(ctx, msg)
+}
+
 // HandleOrderFulfilled sends delivery/shipping confirmation to the customer.
 func (h *OrderHandler) HandleOrderFulfilled(ctx context.Context, data *domain.OrderEventData) error {
 	if err := data.Validate(); err != nil {

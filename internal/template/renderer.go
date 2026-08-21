@@ -102,6 +102,16 @@ func (r *Renderer) RenderOrderCancelled(ctx domain.OrderEmailContext) (string, s
 	return htmlBody, "", nil
 }
 
+// RenderOrderExpired renders payment expiration notice.
+// Why: Provides rendered HTML notification informing customer that their payment window expired.
+func (r *Renderer) RenderOrderExpired(ctx domain.OrderEmailContext) (string, string, error) {
+	htmlBody, err := r.RenderHTML("order/order_expired.html", ctx)
+	if err != nil {
+		return "", "", err
+	}
+	return htmlBody, "", nil
+}
+
 // RenderOrderFulfilled renders shipping & fulfillment confirmation notice.
 func (r *Renderer) RenderOrderFulfilled(ctx domain.OrderEmailContext) (string, string, error) {
 	htmlBody, err := r.RenderHTML("order/order_fulfilled.html", ctx)

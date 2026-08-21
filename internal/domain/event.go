@@ -15,6 +15,7 @@ const (
 	EventTypeOrderCreated   = "order.created"
 	EventTypeOrderPaid      = "order.paid"
 	EventTypeOrderCancelled = "order.cancelled"
+	EventTypeOrderExpired   = "order.expired"
 	EventTypeOrderFulfilled = "order.fulfilled"
 )
 
