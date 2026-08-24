@@ -1,7 +1,6 @@
 .agent
 .omg
 graphify-out
-openspec
 bin/
 *.exe
 .env
