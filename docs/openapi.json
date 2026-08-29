@@ -11,8 +11,8 @@
       "description": "Local Standalone Development Server"
     },
     {
-      "url": "/",
-      "description": "Production API Gateway Reverse Proxy"
+      "url": "./",
+      "description": "Production API Gateway Reverse Proxy (Relative Path)"
     }
   ],
   "tags": [

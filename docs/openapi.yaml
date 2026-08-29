@@ -15,8 +15,8 @@ info:
 servers:
   - url: http://localhost:8070
     description: Local Standalone Development Server (store_notification direct)
-  - url: /
-    description: Production API Gateway Reverse Proxy
+  - url: ./
+    description: Production API Gateway Reverse Proxy (Relative Path)
 
 tags:
   - name: Health & Readiness

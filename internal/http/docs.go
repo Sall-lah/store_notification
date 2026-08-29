@@ -39,7 +39,8 @@ func (d *DocsHandler) ServeOpenAPIJSON(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data)
 }
 
-// ServeScalar renders the modern interactive Scalar documentation interface.
+// ServeScalar renders the modern interactive Scalar documentation interface configured with
+// relative spec paths (./openapi.yaml) to ensure compatibility behind reverse proxies and API gateway prefixes.
 func (d *DocsHandler) ServeScalar(w http.ResponseWriter, r *http.Request) {
 	scalarHTML := `<!doctype html>
 <html lang="en">
@@ -55,7 +56,7 @@ func (d *DocsHandler) ServeScalar(w http.ResponseWriter, r *http.Request) {
   <body>
     <script
       id="api-reference"
-      data-url="/docs/notifications/openapi.yaml"
+      data-url="./openapi.yaml"
       data-proxy-url=""
       data-configuration='{"theme": "purple", "hideModels": false}'
     ></script>
@@ -68,7 +69,8 @@ func (d *DocsHandler) ServeScalar(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(scalarHTML))
 }
 
-// ServeSwagger renders the classic interactive Swagger UI interface.
+// ServeSwagger renders the classic interactive Swagger UI interface configured with
+// relative spec paths (./openapi.yaml) to ensure compatibility behind reverse proxies and API gateway prefixes.
 func (d *DocsHandler) ServeSwagger(w http.ResponseWriter, r *http.Request) {
 	swaggerHTML := `<!DOCTYPE html>
 <html lang="en">
@@ -89,7 +91,7 @@ func (d *DocsHandler) ServeSwagger(w http.ResponseWriter, r *http.Request) {
 <script>
 window.onload = function() {
   window.ui = SwaggerUIBundle({
-    url: "/docs/notifications/openapi.yaml",
+    url: "./openapi.yaml",
     dom_id: '#swagger-ui',
     deepLinking: true,
     presets: [
