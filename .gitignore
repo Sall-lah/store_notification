@@ -5,3 +5,4 @@ bin/
 *.exe
 .env
 .env.*.local
+openspec
